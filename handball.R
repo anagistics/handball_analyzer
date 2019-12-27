@@ -3,6 +3,8 @@ library(magrittr)
 library(stringr)
 library(assertthat)
 library(tidyr)
+library(tabulizer)
+library(dplyr)
 
 extract_header <- function(pdftext) {
   hdr <- pdftext %>% str_locate("Übersicht Spieldaten")
@@ -130,9 +132,7 @@ get_match_links <- function(source) {
 
 links <- url %>% get_match_links()
 
-g1 <- extract_game(links[[1]])
-
-# all_result <- sapply(links, extract_game) %>% bind_rows()
+all_result <- lapply(links, extract_game) %>% bind_rows()
 
 
   
