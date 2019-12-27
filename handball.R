@@ -115,7 +115,7 @@ extract_game <- function(link) {
   
   gkn <- tab %>% filter(IST_GAST_TOR) %$% MANNSCHAFT[[1]]
   
-  tab$HEIN_KURZ <- hkn
+  tab$HEIM_KURZ <- hkn
   tab$GAST_KURZ <- gkn
   
   tab 
@@ -133,6 +133,28 @@ get_match_links <- function(source) {
 links <- url %>% get_match_links()
 
 all_result <- lapply(links, extract_game) %>% bind_rows()
+
+tw_quote_7m <- all_result %>% filter(EREIGNIS %in% c("7m-kein-Tor", "7m-Tor")) %>% 
+  select(MATCH, HEIM_KURZ, GAST_KURZ, EREIGNIS, SPIELER, IST_TOR, IST_HEIM_TOR, 
+         IST_GAST_TOR, MANNSCHAFT) %>% 
+  mutate(TORWART = if_else(MANNSCHAFT == HEIM_KURZ, GAST_KURZ, HEIM_KURZ),
+         TREFFER = if_else(IST_TOR, 1, 0), 
+         GEHALTEN = if_else(IST_TOR, 0, 1)) %>% 
+  group_by(TORWART) %>% 
+  summarise(T = sum(TREFFER), G = sum(GEHALTEN), N = T + G, Q = G/N * 100) %>% 
+  arrange(desc(Q))
+                                                                                                                                                                                                    
+s_quote_7m <- all_result %>% filter(EREIGNIS %in% c("7m-kein-Tor", "7m-Tor")) %>% 
+  select(MATCH, HEIM_KURZ, GAST_KURZ, EREIGNIS, SPIELER, IST_TOR, IST_HEIM_TOR, 
+         IST_GAST_TOR, MANNSCHAFT) %>% 
+  mutate(SCHUETZE = MANNSCHAFT, 
+         TREFFER = if_else(IST_TOR, 1, 0), 
+         GEHALTEN = if_else(IST_TOR, 0, 1)) %>% 
+  group_by(SCHUETZE, SPIELER) %>% 
+  summarise(T = sum(TREFFER), G = sum(GEHALTEN), N = T + G, Q = T/N * 100) %>% 
+  filter(N > 5) %>% 
+  arrange(desc(Q))
+
 
 
   
