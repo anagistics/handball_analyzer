@@ -5,6 +5,8 @@ library(assertthat)
 library(tidyr)
 library(tabulizer)
 library(dplyr)
+library(ggplot2)
+library(plotly)
 
 extract_header <- function(pdftext) {
   hdr <- pdftext %>% str_locate("Übersicht Spieldaten")
@@ -169,10 +171,75 @@ treffer_vt <- mms_tab %>% left_join(all_result, by = c("MATCH", "MANNSCHAFT", "S
   summarize(MNT = mean(NT)) %>% 
   mutate(RANG = row_number(-MNT)) %>% 
   filter(RANG <= 10) %>% 
-  arrange(MANNSCHAFT, RANG) %>% 
-  pivot_wider(id_cols = MANNSCHAFT, names_from = RANG, values_from = c(MNT, SPIELER))
-  
+  arrange(MANNSCHAFT, RANG) 
 
-  
-  
+treffer_relativ <- treffer_vt %>% 
+  group_by(MANNSCHAFT) %>% 
+  mutate(REL_MNT = MNT / first(MNT) * 100) 
+
+xachse <- list(
+  title = "Rang Torschütze",
+  titlefont = list(
+    family = "Arial, sans-serif",
+    size = 14,
+    color = "lightgrey"
+  ),
+  showticklabels = TRUE,
+  dtick = 1,
+  tickfont = list(
+    family = "Arial, sans-serif",
+    size = 12,
+    color = "lightgrey"
+  )
+)
+
+yachse <- list(
+  title = "Relative mittlere Torquote", 
+  titlefont = list(
+                 family = "Arial, sans-serif",
+                 size = 14,
+                 color = "lightgrey"),
+  showticklabels = TRUE,
+  dtick = 10,
+  tickfont = list(
+                 family = "Arial, sans-serif",
+                 size = 12,
+                 color = "lightgrey"
+             )
+)
+               
+ftitel <- list(
+    family = "Arial, sans-serif",
+    #size = 18,
+    color = "blue"
+)
+
+treffer_relativ %>% plot_ly(x = ~RANG, y = ~REL_MNT, color = ~MANNSCHAFT, width = 4,
+                            mode = "lines", colors = "Spectral") %>% 
+  layout(title = "Mannschaftsvergleich relative Torquote", font = ftitel,
+         xaxis = xachse, yaxis = yachse)
+
+
+
+# absolute mittlere Torwürfe
+yachse_abs <- list(
+  title = "mittlere Torquote", 
+  titlefont = list(
+    family = "Arial, sans-serif",
+    size = 14,
+    color = "lightgrey"),
+  showticklabels = TRUE,
+  dtick = 1,
+  tickfont = list(
+    family = "Arial, sans-serif",
+    size = 12,
+    color = "lightgrey"
+  )
+)
+
+treffer_vt %>% plot_ly(x = ~RANG, y = ~MNT, color = ~MANNSCHAFT, width = 4,
+                            mode = "lines", colors = "Spectral") %>% 
+  layout(title = "Mannschaftsvergleich Torquote", font = ftitel,
+         xaxis = xachse, yaxis = yachse_abs)
+
   
