@@ -155,7 +155,23 @@ s_quote_7m <- all_result %>% filter(EREIGNIS %in% c("7m-kein-Tor", "7m-Tor")) %>
   filter(N > 5) %>% 
   arrange(desc(Q))
 
+# Verteilung der Torwürfe auf Spielerinnen pro Verein
+alle_ms <- all_result %>% distinct(MANNSCHAFT, SPIELER)
+alle_mm <- all_result %>% distinct(MATCH, MANNSCHAFT)
 
+mms_tab <- alle_mm %>% inner_join(alle_ms, by = "MANNSCHAFT") %>% na.omit()
+
+treffer_vt <- mms_tab %>% left_join(all_result, by = c("MATCH", "MANNSCHAFT", "SPIELER")) %>% 
+  group_by(MANNSCHAFT, SPIELER, MATCH) %>%
+  mutate(IST_TOR = if_else(is.na(IST_TOR), FALSE, IST_TOR)) %>% 
+  summarise(NT = sum(IST_TOR)) %>% 
+  group_by(MANNSCHAFT, SPIELER) %>%
+  summarize(MNT = mean(NT)) %>% 
+  mutate(RANG = row_number(-MNT)) %>% 
+  filter(RANG <= 10) %>% 
+  arrange(MANNSCHAFT, RANG) %>% 
+  pivot_wider(id_cols = MANNSCHAFT, names_from = RANG, values_from = c(MNT, SPIELER))
+  
 
   
   
