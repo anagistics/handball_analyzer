@@ -242,4 +242,44 @@ treffer_vt %>% plot_ly(x = ~RANG, y = ~MNT, color = ~MANNSCHAFT, width = 4,
   layout(title = "Mannschaftsvergleich Torquote", font = ftitel,
          xaxis = xachse, yaxis = yachse_abs)
 
+# Matchverlauf
+all_matches <- all_result %>% distinct(MATCH) %>% pull()
+
+the_match <- all_matches[[42]]
+
+amatch <- all_result %>% filter(MATCH == the_match) %>% 
+  mutate(SPIELMINUTE = SPIELZEIT / 60)
+
+heim <- amatch$HEIM[[1]]
+gast <- amatch$GAST[[1]]
+
+heim_tore <- amatch %>% filter(IST_HEIM_TOR) %>% select(SPIELMINUTE, HEIM_TORE)
+gast_tore <- amatch %>% filter(IST_GAST_TOR) %>% select(SPIELMINUTE, GAST_TORE)
+
+tachse <- list(
+  title = "Spielminute",
+  titlefont = list(
+    family = "Arial, sans-serif",
+    size = 14
+  ),
+  showticklabels = TRUE,
+  dtick = 5,
+  tickfont = list(
+    family = "Arial, sans-serif",
+    size = 12
+  )
+)
+
+tor_achse <- list(
+  title = "Tore"
+)
+
+plot_ly() %>% 
+  add_trace(x = heim_tore$SPIELMINUTE, 
+            y = heim_tore$HEIM_TORE, name = heim, line = list(shape = "hv"), 
+            type = "scatter", mode = "lines+markers") %>% 
+  add_trace(x = gast_tore$SPIELMINUTE,
+            y = gast_tore$GAST_TORE, name = gast, line = list(shape = "hv"),  
+            type = "scatter", mode = "lines+markers") %>% 
+  layout(title = "Spielverlauf", xaxis = tachse, yaxis = tor_achse)
   
