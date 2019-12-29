@@ -1,10 +1,14 @@
 ---
 title: "Handball Spielanalyse"
-author: Andreas Cardeneo
-output: html_notebook
+author: "Andreas Cardeneo"
+output:
+  html_document:
+    df_print: paged
+    toc: TRUE
+    code_folding: "hide"
 ---
 
-```{r setup}
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
 
 library(rvest)
 library(magrittr)
@@ -311,7 +315,7 @@ Auswahl des Spiels anhand der Variable *the_match*.
 
 all_matches <- all_result %>% distinct(MATCH) %>% pull()
 
-the_match <- all_matches[[42]]
+the_match <- all_result %>% filter(MATCH == "214024") %$% MATCH
 
 amatch <- all_result %>% filter(MATCH == the_match) %>% 
   mutate(SPIELMINUTE = SPIELZEIT / 60)
@@ -349,3 +353,51 @@ plot_ly() %>%
             type = "scatter", mode = "lines+markers") %>% 
   layout(title = "Spielverlauf", xaxis = tachse, yaxis = tor_achse)
 ```   
+
+## Druckanalyse
+
+Hier wird das gleiche Match verwendet wie oben. Die Zwischenankunftszeit *ZAZ* bezeichnet die Zeit (in Sekunden) zwischen zwei Toren. Unterschieden werden:
+* ZAZ_HEIM_HEIM: ZAZ zwischen einem Tor der Heim-Mannschaft und dem vorangehenden Tor der Heim-Mannschaft
+* ZAZ_HEIM_GAST: ZAZ zwischen einem Tor der Heim-Mannschaft und dem vorangehenden Tor der Gast-Mannschaft
+* ZAZ_GAST_HEIM: ZAZ zwischen einem Tor der Gast-Mannschaft und dem vorangehenden Tor der Heim-Mannschaft
+* ZAZ_GAST_GAST: ZAZ zwischen einem Tor der Gast-Mannschaft und dem vorangehenden Tor der Gast-Mannschaft
+
+```{r druckanalyse}
+amatch %<>% arrange(SPIELZEIT) %>% mutate(GES_TORE = HEIM_TORE + GAST_TORE)
+
+cols <- c("HEIM", "GAST", "HEIM_TORE", "GAST_TORE", "HEIM_KURZ", "GAST_KURZ", "SPIELZEIT", "SPIELMINUTE", "GES_TORE")
+
+zaz_hh <- amatch %>% filter(IST_HEIM_TOR) %>% 
+  mutate(ZAZ_HEIM_HEIM = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
+  select(!!c(cols, "ZAZ_HEIM_HEIM"))
+
+zaz_gg <- amatch %>% filter(IST_GAST_TOR) %>% 
+  mutate(ZAZ_GAST_GAST = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
+  select(!!c(cols, "ZAZ_GAST_GAST"))
+
+zaz_hg <- amatch %>% filter(IST_HEIM_TOR & lag(IST_GAST_TOR, default = FALSE, order_by = SPIELZEIT)) %>% 
+  mutate(ZAZ_HEIM_GAST = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
+  select(!!c(cols, "ZAZ_HEIM_GAST"))
+
+zaz_gh <- amatch %>% filter(IST_GAST_TOR & lag(IST_HEIM_TOR, default = FALSE, order_by = SPIELZEIT)) %>% 
+  mutate(ZAZ_GAST_HEIM = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
+  select(!!c(cols, "ZAZ_GAST_HEIM"))
+
+plot_ly() %>% 
+  add_trace(x = zaz_hh$GES_TORE, 
+            y = zaz_hh$ZAZ_HEIM_HEIM / 60, name = "HH", 
+            type = "bar") %>% 
+  add_trace(x = zaz_hg$GES_TORE, 
+            y = zaz_hg$ZAZ_HEIM_GAST / 60, name = "HG", 
+            type = "bar") %>% 
+  add_trace(x = zaz_gg$GES_TORE, 
+            y = - zaz_gg$ZAZ_GAST_GAST / 60, name = "GG", 
+            type = "bar") %>% 
+  add_trace(x = zaz_gh$GES_TORE, 
+            y = - zaz_gh$ZAZ_GAST_HEIM / 60, name = "GH", 
+            type = "bar") %>% 
+  layout(title = "Tor ZAZ")
+
+
+```
+
