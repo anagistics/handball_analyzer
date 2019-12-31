@@ -123,10 +123,14 @@ extract_game <- function(link) {
   
   tab %<>% mutate(IST_TOR = EREIGNIS == "Tor" | EREIGNIS == "7m-Tor")
   
-  tab %<>% fill(HEIM_TORE) %>% fill(GAST_TORE) %>% 
-                mutate(IST_HEIM_TOR = if_else(IST_TOR & HEIM_TORE > lag(HEIM_TORE, n = 1, default = 0, order_by = SPIELZEIT), TRUE, FALSE),
-                  IST_GAST_TOR = IST_TOR & !IST_HEIM_TOR
-                )
+  tab %<>% arrange(SPIELZEIT) %>% fill(HEIM_TORE, .direction = "down") %>% 
+    fill(GAST_TORE, .direction = "down") %>%
+    fill(SPIELSTAND, .direction = "down") %>% 
+    replace_na(list(HEIM_TORE = 0, GAST_TORE = 0, SPIELSTAND = "0:0")) %>% 
+    mutate(IST_HEIM_TOR = 
+             if_else(IST_TOR & HEIM_TORE > lag(HEIM_TORE, n = 1, default = 0, order_by = SPIELZEIT), 
+                    TRUE, FALSE),
+           IST_GAST_TOR = IST_TOR & !IST_HEIM_TOR)
   
   hkn <- tab %>% filter(IST_HEIM_TOR) %$% MANNSCHAFT[[1]]
   
@@ -357,6 +361,8 @@ plot_ly() %>%
 ## Druckanalyse
 
 Hier wird das gleiche Match verwendet wie oben. Die Zwischenankunftszeit *ZAZ* bezeichnet die Zeit (in Sekunden) zwischen zwei Toren. Unterschieden werden:
+* ZAZ_HEIM: ZAZ zwischen Tor der Heim-Mannschaft und dem vorangehenden (von Heim oder Gast)
+* ZAZ_GAST: ZAZ zwischen Tor der Gast-Mannschaft und dem vorangehenden (von Heim oder Gast)
 * ZAZ_HEIM_HEIM: ZAZ zwischen einem Tor der Heim-Mannschaft und dem vorangehenden Tor der Heim-Mannschaft
 * ZAZ_HEIM_GAST: ZAZ zwischen einem Tor der Heim-Mannschaft und dem vorangehenden Tor der Gast-Mannschaft
 * ZAZ_GAST_HEIM: ZAZ zwischen einem Tor der Gast-Mannschaft und dem vorangehenden Tor der Heim-Mannschaft
@@ -367,35 +373,49 @@ amatch %<>% arrange(SPIELZEIT) %>% mutate(GES_TORE = HEIM_TORE + GAST_TORE)
 
 cols <- c("HEIM", "GAST", "HEIM_TORE", "GAST_TORE", "HEIM_KURZ", "GAST_KURZ", "SPIELZEIT", "SPIELMINUTE", "GES_TORE")
 
-zaz_hh <- amatch %>% filter(IST_HEIM_TOR) %>% 
-  mutate(ZAZ_HEIM_HEIM = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
-  select(!!c(cols, "ZAZ_HEIM_HEIM"))
+zaz_h <- amatch %>% filter(IST_TOR) %>% 
+  mutate(ZAZ_HEIM = if_else(IST_HEIM_TOR, 
+                            as.integer(SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)),
+                            NA_integer_)) %>%
+  filter(!is.na(ZAZ_HEIM)) %>% 
+  select(!!c(cols, "ZAZ_HEIM"))
 
-zaz_gg <- amatch %>% filter(IST_GAST_TOR) %>% 
-  mutate(ZAZ_GAST_GAST = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
-  select(!!c(cols, "ZAZ_GAST_GAST"))
-
-zaz_hg <- amatch %>% filter(IST_HEIM_TOR & lag(IST_GAST_TOR, default = FALSE, order_by = SPIELZEIT)) %>% 
-  mutate(ZAZ_HEIM_GAST = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
-  select(!!c(cols, "ZAZ_HEIM_GAST"))
-
-zaz_gh <- amatch %>% filter(IST_GAST_TOR & lag(IST_HEIM_TOR, default = FALSE, order_by = SPIELZEIT)) %>% 
-  mutate(ZAZ_GAST_HEIM = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
-  select(!!c(cols, "ZAZ_GAST_HEIM"))
+zaz_g <- amatch %>% filter(IST_TOR) %>% 
+  mutate(ZAZ_GAST = if_else(IST_GAST_TOR, 
+                            as.integer(SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)),
+                            NA_integer_)) %>%
+  filter(!is.na(ZAZ_GAST)) %>% 
+  select(!!c(cols, "ZAZ_GAST"))
+# 
+# zaz_hh <- amatch %>% filter(IST_HEIM_TOR) %>% 
+#   mutate(ZAZ_HEIM_HEIM = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
+#   select(!!c(cols, "ZAZ_HEIM_HEIM"))
+# 
+# zaz_gg <- amatch %>% filter(IST_GAST_TOR) %>% 
+#   mutate(ZAZ_GAST_GAST = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
+#   select(!!c(cols, "ZAZ_GAST_GAST"))
+# 
+# zaz_hg <- amatch %>% filter(IST_HEIM_TOR & lag(IST_GAST_TOR, default = FALSE, order_by = SPIELZEIT)) %>% 
+#   mutate(ZAZ_HEIM_GAST = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
+#   select(!!c(cols, "ZAZ_HEIM_GAST"))
+# 
+# zaz_gh <- amatch %>% filter(IST_GAST_TOR & lag(IST_HEIM_TOR, default = FALSE, order_by = SPIELZEIT)) %>% 
+#   mutate(ZAZ_GAST_HEIM = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
+#   select(!!c(cols, "ZAZ_GAST_HEIM"))
 
 plot_ly() %>% 
-  add_trace(x = zaz_hh$GES_TORE, 
-            y = zaz_hh$ZAZ_HEIM_HEIM / 60, name = "HH", 
+  add_trace(x = zaz_h$GES_TORE, 
+            y = zaz_h$ZAZ_HEIM / 60, name = "H", 
             type = "bar") %>% 
-  add_trace(x = zaz_hg$GES_TORE, 
-            y = zaz_hg$ZAZ_HEIM_GAST / 60, name = "HG", 
+  add_trace(x = zaz_g$GES_TORE, 
+            y = -1 * zaz_g$ZAZ__GAST / 60, name = "G", 
             type = "bar") %>% 
-  add_trace(x = zaz_gg$GES_TORE, 
-            y = - zaz_gg$ZAZ_GAST_GAST / 60, name = "GG", 
-            type = "bar") %>% 
-  add_trace(x = zaz_gh$GES_TORE, 
-            y = - zaz_gh$ZAZ_GAST_HEIM / 60, name = "GH", 
-            type = "bar") %>% 
+  # add_trace(x = zaz_gg$GES_TORE, 
+  #           y = - zaz_gg$ZAZ_GAST_GAST / 60, name = "GG", 
+  #           type = "bar") %>% 
+  # add_trace(x = zaz_gh$GES_TORE, 
+  #           y = - zaz_gh$ZAZ_GAST_HEIM / 60, name = "GH", 
+  #           type = "bar") %>% 
   layout(title = "Tor ZAZ")
 
 
