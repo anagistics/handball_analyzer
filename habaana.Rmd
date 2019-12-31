@@ -238,7 +238,8 @@ treffer_vt <- mms_tab %>%
   summarize(MNT = mean(NT)) %>% 
   mutate(RANG = row_number(-MNT)) %>% 
   filter(RANG <= 10) %>% 
-  arrange(MANNSCHAFT, RANG) 
+  arrange(MANNSCHAFT, RANG) %>% 
+  mutate(LABEL = paste(SPIELER, " (", MANNSCHAFT, ", ", format(MNT, digits = 2), ")", sep = ""))
 
 treffer_relativ <- treffer_vt %>% 
   group_by(MANNSCHAFT) %>% 
@@ -281,8 +282,9 @@ ftitel <- list(
     color = "blue"
 )
 
-treffer_relativ %>% plot_ly(x = ~RANG, y = ~REL_MNT, color = ~MANNSCHAFT, width = 4,
-                            mode = "lines", colors = "Spectral") %>% 
+treffer_relativ %>% plot_ly() %>% 
+  add_trace(x = ~RANG, y = ~REL_MNT, color = ~MANNSCHAFT, text = ~LABEL, hoverinfo = "text", 
+            type = "scatter", mode = "lines + markers", colors = "Spectral") %>% 
   layout(title = "Mannschaftsvergleich relative Torquote", font = ftitel,
          xaxis = xachse, yaxis = yachse)
 ```
@@ -306,8 +308,8 @@ yachse_abs <- list(
   )
 )
 
-treffer_vt %>% plot_ly(x = ~RANG, y = ~MNT, color = ~MANNSCHAFT, width = 4,
-                            mode = "lines", colors = "Spectral") %>% 
+treffer_vt %>% plot_ly(x = ~RANG, y = ~MNT, color = ~MANNSCHAFT,  text = ~LABEL, hoverinfo = "text",
+                       type = "scatter", mode = "lines + markers", colors = "Spectral") %>% 
   layout(title = "Mannschaftsvergleich Torquote", font = ftitel,
          xaxis = xachse, yaxis = yachse_abs)
 ``` 
@@ -403,12 +405,13 @@ zaz_g <- amatch %>% filter(IST_TOR) %>%
 #   mutate(ZAZ_GAST_HEIM = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
 #   select(!!c(cols, "ZAZ_GAST_HEIM"))
 
-plot_ly() %>% 
-  add_trace(x = zaz_h$GES_TORE, 
-            y = zaz_h$ZAZ_HEIM / 60, name = "H", 
+pdata <- amatch %>% select(GES_TORE, SPIELZEIT) %>% left_join(zaz_h, by = "GES_TORE") %>% 
+  left_join(zaz_g, by = "GES_TORE")
+
+pdata %>% plot_ly(x = ~GES_TORE) %>% 
+  add_trace(y = ~ZAZ_HEIM / 60, name = "H", 
             type = "bar") %>% 
-  add_trace(x = zaz_g$GES_TORE, 
-            y = -1 * zaz_g$ZAZ__GAST / 60, name = "G", 
+  add_trace(y = ~ZAZ_GAST * (-1 / 60), name = "G", 
             type = "bar") %>% 
   # add_trace(x = zaz_gg$GES_TORE, 
   #           y = - zaz_gg$ZAZ_GAST_GAST / 60, name = "GG", 
