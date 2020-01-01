@@ -405,21 +405,22 @@ zaz_g <- amatch %>% filter(IST_TOR) %>%
 #   mutate(ZAZ_GAST_HEIM = SPIELZEIT - lag(SPIELZEIT, default = 0, order_by = SPIELZEIT)) %>% 
 #   select(!!c(cols, "ZAZ_GAST_HEIM"))
 
-pdata <- amatch %>% select(GES_TORE, SPIELZEIT) %>% left_join(zaz_h, by = "GES_TORE") %>% 
-  left_join(zaz_g, by = "GES_TORE")
+pdata <- amatch %>% filter(IST_TOR) %>% select(GES_TORE, SPIELZEIT, MANNSCHAFT) %>% 
+  left_join(zaz_h, by = "GES_TORE") %>% 
+  left_join(zaz_g, by = "GES_TORE") %>% 
+  mutate(SPIELZEIT = if_else(is.na(SPIELZEIT), SPIELZEIT.x, SPIELZEIT), 
+         WERT = if_else(is.na(ZAZ_HEIM),-1 * ZAZ_GAST/60, ZAZ_HEIM/60)) %>%
+  select(-ends_with(".x")) %>% select(-ends_with(".y")) 
 
-pdata %>% plot_ly(x = ~GES_TORE) %>% 
-  add_trace(y = ~ZAZ_HEIM / 60, name = "H", 
-            type = "bar") %>% 
-  add_trace(y = ~ZAZ_GAST * (-1 / 60), name = "G", 
-            type = "bar") %>% 
-  # add_trace(x = zaz_gg$GES_TORE, 
-  #           y = - zaz_gg$ZAZ_GAST_GAST / 60, name = "GG", 
-  #           type = "bar") %>% 
-  # add_trace(x = zaz_gh$GES_TORE, 
-  #           y = - zaz_gh$ZAZ_GAST_HEIM / 60, name = "GH", 
-  #           type = "bar") %>% 
-  layout(title = "Tor ZAZ")
+mgt <- (max(pdata$GES_TORE) %/% 5 + 1) * 5
+
+pdata %>% ggplot(aes(x = GES_TORE, fill = MANNSCHAFT)) + 
+  geom_col(aes(y = WERT)) +
+  scale_y_continuous(labels = function(l) abs(l)) +
+  scale_x_continuous(breaks = seq(0, mgt, 5)) +
+  labs(title = "ZAZ Torerfolge", x = "Torfolgenummer", y = "ZAZ [Min]")
+  
+
 
 
 ```
